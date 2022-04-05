@@ -4,14 +4,16 @@ using HeyUrlChallengeCodeDotnet.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace hey_url_challenge_code_dotnet.Migrations
 {
     [DbContext(typeof(ApplicationContext))]
-    partial class ApplicationContextModelSnapshot : ModelSnapshot
+    [Migration("20220403220518_ClickObject")]
+    partial class ClickObject
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -30,9 +32,6 @@ namespace hey_url_challenge_code_dotnet.Migrations
 
                     b.Property<DateTime>("ClickDate")
                         .HasColumnType("datetime2");
-
-                    b.Property<string>("OS")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<Guid?>("UrlId")
                         .HasColumnType("uniqueidentifier");

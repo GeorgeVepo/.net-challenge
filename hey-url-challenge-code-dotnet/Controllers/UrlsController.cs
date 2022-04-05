@@ -1,6 +1,9 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using hey_url_challenge_code_dotnet.Models;
+using hey_url_challenge_code_dotnet.Services;
 using hey_url_challenge_code_dotnet.ViewModels;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -12,74 +15,96 @@ namespace HeyUrlChallengeCodeDotnet.Controllers
     public class UrlsController : Controller
     {
         private readonly ILogger<UrlsController> _logger;
-        private static readonly Random getrandom = new Random();
-        private readonly IBrowserDetector browserDetector;
+        private IUrlService _UrlService;
+        private IClickService _clickService;
 
-        public UrlsController(ILogger<UrlsController> logger, IBrowserDetector browserDetector)
+
+        public UrlsController(ILogger<UrlsController> logger, IUrlService urlService, IClickService clickService)
         {
-            this.browserDetector = browserDetector;
+            _UrlService = urlService;
             _logger = logger;
-        }
+            _clickService = clickService;
+        }   
+     
 
         public IActionResult Index()
         {
-            var model = new HomeViewModel();
-            model.Urls = new List<Url>
-            {
-                new()
-                {
-                    ShortUrl = "ABCDE",
-                    Count = getrandom.Next(1, 10)
-                },
-                new()
-                {
-                    ShortUrl = "ABCDE",
-                    Count = getrandom.Next(1, 10)
-                },
-                new()
-                {
-                    ShortUrl = "ABCDE",
-                    Count = getrandom.Next(1, 10)
-                },
-            };
-            model.NewUrl = new();
-            return View(model);
+            return View(GetIndextHomeViewModel());
         }
 
+
+        [Route("urls/create")]
+        public IActionResult Create(HomeViewModel model)
+        {
+            if (!ModelState.IsValid)
+            {
+                return View("index", GetIndextHomeViewModel());
+            }
+
+            IEnumerable<Url> savedUrls = _UrlService.GetAll;
+
+            string shortUrl = _UrlService.ShortenUrl(model.NewUrl.OriginalUrl);
+            while (_UrlService.CheckUrlRepeated(shortUrl, savedUrls))
+            {
+                shortUrl = _UrlService.ShortenUrl(model.NewUrl.OriginalUrl);
+            }
+
+            _UrlService.InsertUrl(shortUrl, model.NewUrl.OriginalUrl);
+
+            return View("index", GetIndextHomeViewModel());
+        }
+
+        [Route("/NotFound")]
+        public IActionResult NotFound()
+        {
+            return View();
+        }
+
+
         [Route("/{url}")]
-        public IActionResult Visit(string url) => new OkObjectResult($"{url}, {this.browserDetector.Browser.OS}, {this.browserDetector.Browser.Name}");
+        public IActionResult Visit(string url)
+        {
+            _UrlService.UpdateUrlCount(url);
+
+            return View("index", GetIndextHomeViewModel());
+        }
 
         [Route("urls/{url}")]
-        public IActionResult Show(string url) => View(new ShowViewModel
+        public IActionResult Show(string url)
         {
-            Url = new Url {ShortUrl = url, Count = getrandom.Next(1, 10)},
-            DailyClicks = new Dictionary<string, int>
-            {
-                {"1", 13},
-                {"2", 2},
-                {"3", 1},
-                {"4", 7},
-                {"5", 20},
-                {"6", 18},
-                {"7", 10},
-                {"8", 20},
-                {"9", 15},
-                {"10", 5}
-            },
-            BrowseClicks = new Dictionary<string, int>
-            {
-                { "IE", 13 },
-                { "Firefox", 22 },
-                { "Chrome", 17 },
-                { "Safari", 7 },
-            },
-            PlatformClicks = new Dictionary<string, int>
-            {
-                { "Windows", 13 },
-                { "macOS", 22 },
-                { "Ubuntu", 17 },
-                { "Other", 7 },
-            }
-        });
+            Url urlObject = _UrlService.FindByUrl(url);
+            _clickService.InsertClick(urlObject);
+
+            IEnumerable<Click> clickList = _clickService.GetCurrentMonthClicks();
+
+            Dictionary<string, int> dailyClicks = _clickService.GetDailyClicks(clickList);
+
+            Dictionary<string, int> browseClicks = _clickService.GetBrowserClicks(clickList);
+
+            Dictionary<string, int> platformClicks = _clickService.GetPlatformClicks(clickList);            
+
+            return View(GetShowViewModel(urlObject, dailyClicks, platformClicks, browseClicks));
+        }
+
+        private ShowViewModel GetShowViewModel(Url urlObject, Dictionary<string, int> dailyClicks, Dictionary<string, int> platformClicks, Dictionary<string, int> browseClicks)
+        {
+            ShowViewModel showViewModel = new ShowViewModel();
+            showViewModel.Url = urlObject;
+            showViewModel.DailyClicks = dailyClicks;
+            showViewModel.PlatformClicks = platformClicks;
+            showViewModel.BrowseClicks = browseClicks;
+            return showViewModel;
+        }
+
+
+        private HomeViewModel GetIndextHomeViewModel()
+        {
+            var model = new HomeViewModel();
+
+            model.Urls = _UrlService.GetAll;
+            model.NewUrl = new();
+            return model;
+        }
+
     }
 }
